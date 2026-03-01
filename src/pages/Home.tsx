@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { ArrowRight, CheckCircle, Search, Settings, Shield, Truck } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import ProductCard from '../components/ProductCard';
@@ -10,136 +10,54 @@ export default function Home() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [settings, setSettings] = useState<any>({});
+  const navigate = useNavigate();
 
   useEffect(() => {
-    // Fetch popular products (most reserved/requested)
-    fetch('/api/products?sort=popular&limit=8')
+    // Fetch settings first to get the popular limit
+    fetch('/api/settings')
       .then(res => res.json())
-      .then(data => setFeaturedProducts(data));
+      .then(settingsData => {
+        setSettings(settingsData);
+        const limit = settingsData.popular_limit || '4';
+        
+        // Fetch popular products with the limit from settings
+        fetch(`/api/products?sort=popular&limit=${limit}`)
+          .then(res => res.json())
+          .then(data => setFeaturedProducts(data));
+      });
 
     fetch('/api/categories')
       .then(res => res.json())
       .then(data => setCategories(data.slice(0, 6)));
-
-    fetch('/api/settings')
-      .then(res => res.json())
-      .then(data => setSettings(data));
   }, []);
 
   return (
-    <div className="min-h-screen">
-      {/* Hero Section */}
-      <section className="relative h-[90vh] flex items-center overflow-hidden">
-        {/* Background Image with Overlay */}
-        <div className="absolute inset-0 z-0">
-          {settings.home_hero_image && (
-            <img 
-              src={settings.home_hero_image}
-              alt="Luxury Car Garage" 
-              className="w-full h-full object-cover"
+    <div className="min-h-screen pt-[104px]">
+      {/* Sticky Search Bar */}
+      <div className="sticky top-[64px] z-40 bg-dahak-dark/95 backdrop-blur-md border-b border-white/10 py-4 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-white/10 backdrop-blur-md p-2 rounded-xl border border-white/20 flex items-center gap-2 w-full">
+            <Search className="text-gray-400 ml-3 shrink-0" />
+            <input 
+              type="text" 
+              placeholder="Rechercher une pièce" 
+              className="bg-transparent border-none outline-none text-white placeholder-gray-400 w-full py-2"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && navigate(`/products?search=${searchQuery}`)}
             />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-transparent" />
-        </div>
-
-        <div className="container mx-auto px-4 relative z-10 pt-20">
-          <motion.div 
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="max-w-2xl"
-          >
-            <div className="flex items-center gap-2 mb-4">
-              <div className="h-[2px] w-12 bg-dahak-red" />
-              <span className="text-dahak-red font-bold tracking-widest uppercase text-sm">Expert en Pièces Auto</span>
-            </div>
-            {settings.home_hero_title ? (
-               <h1 className="text-5xl md:text-7xl font-display font-bold leading-tight mb-6 whitespace-pre-line">
-                 {settings.home_hero_title}
-               </h1>
-            ) : (
-              <h1 className="text-5xl md:text-7xl font-display font-bold leading-tight mb-6">
-                PIÈCES AUTO <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-500">ORIGINALES</span>
-              </h1>
-            )}
-            <p className="text-gray-400 text-lg mb-8 max-w-lg whitespace-pre-line">
-              {settings.home_hero_subtitle || "Trouvez les meilleures pièces de rechange pour votre véhicule. Qualité garantie, prix compétitifs et service professionnel en Algérie."}
-            </p>
-
-            {/* Search Bar */}
-            <div className="bg-white/10 backdrop-blur-md p-2 rounded-xl border border-white/20 flex items-center gap-2 max-w-md mb-8">
-              <Search className="text-gray-400 ml-3" />
-              <input 
-                type="text" 
-                placeholder="Rechercher une pièce" 
-                className="bg-transparent border-none outline-none text-white placeholder-gray-400 w-full py-2"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (window.location.href = `/products?search=${searchQuery}`)}
-              />
-              <Link 
-                to={`/products?search=${searchQuery}`}
-                className="bg-dahak-red hover:bg-red-600 text-white px-6 py-2 rounded-lg font-medium transition-colors"
-              >
-                Chercher
-              </Link>
-            </div>
-
-            <div className="flex gap-4">
-              <Link to="/products" className="px-8 py-3 bg-white text-black font-bold rounded-lg hover:bg-gray-200 transition-colors">
-                Voir le Catalogue
-              </Link>
-              <Link to="/contact" className="px-8 py-3 border border-white/30 text-white font-bold rounded-lg hover:bg-white/10 transition-colors">
-                Nous Contacter
-              </Link>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Categories Preview */}
-      <section className="py-20 bg-dahak-dark">
-        <div className="container mx-auto px-4">
-          <div className="flex justify-between items-end mb-12">
-            <div>
-              <h2 className="text-3xl md:text-4xl font-display font-bold mb-2">Nos Catégories</h2>
-              <p className="text-gray-400">Explorez notre large gamme de pièces détachées</p>
-            </div>
-            <Link to="/categories" className="hidden md:flex items-center gap-2 text-dahak-red hover:text-white transition-colors font-medium">
-              Tout voir <ArrowRight size={18} />
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {categories.map((cat, idx) => (
-              <Link 
-                key={cat.id} 
-                to={`/products?category=${cat.slug}`}
-                className="group relative h-40 rounded-xl overflow-hidden border border-white/10"
-              >
-                <img 
-                  src={cat.image_url} 
-                  alt={cat.name} 
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent flex items-end p-4">
-                  <span className="font-medium text-white group-hover:text-dahak-red transition-colors">{cat.name}</span>
-                </div>
-              </Link>
-            ))}
-          </div>
-          
-          <div className="mt-8 text-center md:hidden">
-            <Link to="/categories" className="inline-flex items-center gap-2 text-dahak-red font-medium">
-              Voir toutes les catégories <ArrowRight size={18} />
-            </Link>
+            <button 
+              onClick={() => navigate(`/products?search=${searchQuery}`)}
+              className="bg-dahak-red hover:bg-red-600 text-white px-6 py-2 rounded-lg font-medium transition-colors shrink-0"
+            >
+              Chercher
+            </button>
           </div>
         </div>
-      </section>
+      </div>
 
       {/* Popular Products */}
-      <section className="py-20 bg-dahak-gray border-y border-white/5">
+      <section className="py-12 bg-dahak-gray">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <span className="text-dahak-red font-bold tracking-widest uppercase text-sm">Les plus demandés</span>

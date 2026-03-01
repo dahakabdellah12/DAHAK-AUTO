@@ -87,6 +87,17 @@ async function startServer() {
     });
   });
 
+  // Brands
+  app.get('/api/brands', (req, res) => {
+    try {
+      const brands = db.prepare("SELECT DISTINCT brand FROM products WHERE brand IS NOT NULL AND brand != '' ORDER BY brand ASC").all();
+      res.json(brands.map((b: any) => b.brand));
+    } catch (error) {
+      console.error("Error fetching brands:", error);
+      res.status(500).json({ error: "Failed to fetch brands" });
+    }
+  });
+
   // Products
   app.get('/api/products', (req, res) => {
     const { category, brand, search, featured, sort, limit } = req.query;
@@ -199,6 +210,16 @@ async function startServer() {
     }
   });
 
+  app.put('/api/categories/:id', authenticateToken, (req, res) => {
+    const { name, slug, image_url } = req.body;
+    try {
+      db.prepare('UPDATE categories SET name = ?, slug = ?, image_url = ? WHERE id = ?').run(name, slug, image_url, req.params.id);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  });
+
   app.delete('/api/categories/:id', authenticateToken, (req, res) => {
     try {
       // Set category_id to null for products in this category
@@ -268,6 +289,22 @@ async function startServer() {
     } catch (error: any) {
       console.error('Error deleting message:', error);
       res.status(500).json({ message: 'Error deleting message: ' + error.message });
+    }
+  });
+
+  app.post('/api/messages/delete-bulk', authenticateToken, (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids)) return res.status(400).json({ message: 'Invalid ids array' });
+      const stmt = db.prepare('DELETE FROM messages WHERE id = ?');
+      const deleteMany = db.transaction((messageIds) => {
+        for (const id of messageIds) stmt.run(id);
+      });
+      deleteMany(ids);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error bulk deleting messages:', error);
+      res.status(500).json({ message: 'Error bulk deleting messages: ' + error.message });
     }
   });
 

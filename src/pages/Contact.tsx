@@ -36,7 +36,7 @@ export default function Contact() {
   };
 
   return (
-    <div className="min-h-screen pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+    <div className="min-h-screen pt-[120px] pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
       <div className="text-center mb-16">
         <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">Contactez-nous</h1>
         <p className="text-gray-400 max-w-2xl mx-auto">
@@ -103,7 +103,7 @@ export default function Contact() {
           {/* Map Placeholder */}
           <div className="h-64 bg-white/5 rounded-2xl border border-white/10 overflow-hidden relative">
             <iframe 
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3197.593635039304!2d3.1365!3d36.725!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x128e526065555555%3A0x0!2sOued+Smar!5e0!3m2!1sen!2sdz!4v1620000000000!5m2!1sen!2sdz" 
+              src={settings.google_maps_url || "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3197.593635039304!2d3.1365!3d36.725!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x128e526065555555%3A0x0!2sOued+Smar!5e0!3m2!1sen!2sdz!4v1620000000000!5m2!1sen!2sdz"} 
               width="100%" 
               height="100%" 
               style={{ border: 0 }} 

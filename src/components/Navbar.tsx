@@ -7,21 +7,19 @@ export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [settings, setSettings] = useState<any>({});
-  const [lang, setLang] = useState('fr');
+  const [lang, setLang] = useState(() => localStorage.getItem('app-language') || 'fr');
   const location = useLocation();
 
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 20);
     };
+    handleScroll(); // Check immediately on mount
     window.addEventListener('scroll', handleScroll);
     
     fetch('/api/settings')
       .then(res => res.json())
       .then(data => setSettings(data));
-
-    const savedLang = localStorage.getItem('app-language');
-    if (savedLang) setLang(savedLang);
 
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -45,9 +43,9 @@ export default function Navbar() {
   ];
 
   return (
-    <nav className={`fixed w-full z-50 transition-all duration-300 ${scrolled ? 'bg-dahak-dark/95 backdrop-blur-md border-b border-white/10 py-3' : 'bg-transparent py-5'}`}>
+    <nav className={`fixed w-full z-50 transition-all duration-300 ${scrolled ? 'bg-white shadow-md py-1' : 'bg-white shadow-sm py-3'}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center">
+        <div className={`flex justify-between items-center transition-all duration-300 ${scrolled ? 'h-14' : 'h-20'}`}>
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 group">
             {settings.site_logo ? (
@@ -63,7 +61,7 @@ export default function Navbar() {
                   <span className="font-display font-bold text-white text-xl">D</span>
                 </div>
                 <div className="flex flex-col">
-                  <span className="font-display font-bold text-xl tracking-wider leading-none">DAHAK</span>
+                  <span className="font-display font-bold text-xl tracking-wider leading-none text-dahak-dark">DAHAK</span>
                   <span className="text-xs text-dahak-red font-bold tracking-[0.2em] leading-none">AUTO</span>
                 </div>
               </>
@@ -77,7 +75,7 @@ export default function Navbar() {
                 key={link.path}
                 to={link.path}
                 className={`text-sm font-medium transition-colors hover:text-dahak-red ${
-                  location.pathname === link.path ? 'text-dahak-red' : 'text-gray-300'
+                  location.pathname === link.path ? 'text-dahak-red' : 'text-gray-600'
                 }`}
               >
                 {link.name}
@@ -89,16 +87,16 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-4">
             <button 
               onClick={toggleLanguage}
-              className="p-2 text-gray-300 hover:text-white transition-colors font-bold text-sm flex items-center gap-1"
+              className="p-2 text-gray-600 hover:text-dahak-dark transition-colors font-bold text-sm flex items-center gap-1"
               title={lang === 'fr' ? 'Switch to Arabic' : 'Passer en Français'}
             >
               <Globe size={18} />
               <span>{lang === 'fr' ? 'AR' : 'FR'}</span>
             </button>
-            <Link to="/products" className="p-2 text-gray-300 hover:text-white transition-colors">
+            <Link to="/products" className="p-2 text-gray-600 hover:text-dahak-dark transition-colors">
               <Search size={20} />
             </Link>
-            <Link to="/admin" className="p-2 text-gray-300 hover:text-white transition-colors">
+            <Link to="/admin" className="p-2 text-gray-600 hover:text-dahak-dark transition-colors">
               <User size={20} />
             </Link>
             {settings.phone && settings.phone.replace(/\D/g, '').length === 12 && (
@@ -115,7 +113,7 @@ export default function Navbar() {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="md:hidden text-white p-2"
+            className="md:hidden text-dahak-dark p-2"
           >
             {isOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
@@ -129,7 +127,7 @@ export default function Navbar() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-dahak-dark border-b border-white/10 overflow-hidden"
+            className="md:hidden bg-white border-b border-black/5 overflow-hidden shadow-md"
           >
             <div className="px-4 py-4 space-y-4">
               {navLinks.map((link) => (
@@ -137,20 +135,20 @@ export default function Navbar() {
                   key={link.path}
                   to={link.path}
                   className={`block text-base font-medium ${
-                    location.pathname === link.path ? 'text-dahak-red' : 'text-gray-300'
+                    location.pathname === link.path ? 'text-dahak-red' : 'text-gray-600'
                   }`}
                 >
                   {link.name}
                 </Link>
               ))}
-              <div className="pt-4 border-t border-white/10 flex flex-col gap-4">
+              <div className="pt-4 border-t border-black/5 flex flex-col gap-4">
                 <button 
                   onClick={toggleLanguage}
-                  className="flex items-center gap-2 text-gray-300"
+                  className="flex items-center gap-2 text-gray-600"
                 >
                   <Globe size={18} /> {lang === 'fr' ? 'Arabe' : 'Français'}
                 </button>
-                <Link to="/admin" className="flex items-center gap-2 text-gray-300">
+                <Link to="/admin" className="flex items-center gap-2 text-gray-600">
                   <User size={18} /> Espace Admin
                 </Link>
                 {settings.phone && (

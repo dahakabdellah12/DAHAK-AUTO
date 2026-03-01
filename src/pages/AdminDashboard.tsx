@@ -1,7 +1,67 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { BarChart3, Box, MessageSquare, ShoppingBag, LogOut, Plus, Trash, Edit, Check, X, Layers, Settings as SettingsIcon, Minus, Copy, Home } from 'lucide-react';
+import { BarChart3, Box, MessageSquare, ShoppingBag, LogOut, Plus, Trash, Edit, Check, X, Layers, Settings as SettingsIcon, Minus, Copy, Home, GripVertical, ChevronUp, ChevronDown, ChevronRight } from 'lucide-react';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Product, Reservation, Message, Category, Settings } from '../types';
+
+// Sortable Image Item Component
+const SortableImageItem: React.FC<{ id: string, img: string, idx: number, onRemove: (idx: number) => void, onUpload: (idx: number, file: File) => Promise<void> | void }> = ({ id, img, idx, onRemove, onUpload }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : 1,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="flex gap-2 items-center bg-dahak-gray/50 p-2 rounded-lg border border-white/5">
+      <div {...attributes} {...listeners} className="text-gray-600 cursor-grab active:cursor-grabbing p-1 hover:text-gray-400">
+        <GripVertical size={20} />
+      </div>
+      <input 
+        className="flex-1 bg-black/20 border border-white/10 rounded-lg p-2 focus:border-dahak-red focus:outline-none text-white text-sm"
+        placeholder="URL de l'image..."
+        value={img}
+        onChange={e => {
+          // This will be handled by the parent
+        }}
+        readOnly
+      />
+      <button 
+        type="button"
+        onClick={() => onRemove(idx)}
+        className="p-2 bg-white/5 hover:bg-red-500/20 text-gray-400 hover:text-red-400 rounded-lg transition-colors"
+        title="Supprimer"
+      >
+        <Trash size={16} />
+      </button>
+      <label className="cursor-pointer bg-white/10 hover:bg-white/20 text-white px-3 py-2 rounded-lg flex items-center justify-center transition-colors">
+        <span className="text-[10px] font-bold uppercase">Upload</span>
+        <input 
+          type="file" 
+          className="hidden" 
+          accept="image/*"
+          onChange={(e) => {
+            if (e.target.files && e.target.files[0]) {
+              onUpload(idx, e.target.files[0]);
+            }
+          }}
+        />
+      </label>
+    </div>
+  );
+}
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -12,11 +72,54 @@ export default function AdminDashboard() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [settings, setSettings] = useState<Partial<Settings>>({});
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const toggleGroup = (key: string) => {
+    const newExpanded = new Set(expandedGroups);
+    if (newExpanded.has(key)) {
+      newExpanded.delete(key);
+    } else {
+      newExpanded.add(key);
+    }
+    setExpandedGroups(newExpanded);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = (currentProduct.imageObjects || []).findIndex(img => img.id === active.id);
+      const newIndex = (currentProduct.imageObjects || []).findIndex(img => img.id === over.id);
+      
+      const newImageObjects = arrayMove(currentProduct.imageObjects || [], oldIndex, newIndex);
+      setCurrentProduct({ ...currentProduct, imageObjects: newImageObjects });
+    }
+  };
   
   // Product Form State
   const [isEditing, setIsEditing] = useState(false);
-  const [currentProduct, setCurrentProduct] = useState<Partial<Product>>({});
+  const [currentProduct, setCurrentProduct] = useState<Partial<Product & { imageObjects: { id: string, url: string }[] }>>({});
   const [showProductModal, setShowProductModal] = useState(false);
+
+  // When opening product modal, prepare image objects with IDs
+  useEffect(() => {
+    if (showProductModal && currentProduct.images && !currentProduct.imageObjects) {
+      const imageObjects = (currentProduct.images as string[]).map(url => ({
+        id: Math.random().toString(36).substr(2, 9),
+        url
+      }));
+      if (imageObjects.length === 0) imageObjects.push({ id: 'initial', url: '' });
+      setCurrentProduct(prev => ({ ...prev, imageObjects }));
+    } else if (showProductModal && !currentProduct.imageObjects) {
+      setCurrentProduct(prev => ({ ...prev, imageObjects: [{ id: 'initial', url: '' }] }));
+    }
+  }, [showProductModal]);
 
   // Category Form State
   const [currentCategory, setCurrentCategory] = useState<Partial<Category>>({});
@@ -92,7 +195,7 @@ export default function AdminDashboard() {
     navigate('/admin');
   };
 
-  const openDeleteModal = (type: 'product' | 'category' | 'reservation' | 'message', id: number) => {
+  const openDeleteModal = (type: 'product' | 'category' | 'reservation' | 'message' | 'conversation', id: any) => {
     setDeleteConfirmation({ isOpen: true, type, id });
   };
 
@@ -104,13 +207,24 @@ export default function AdminDashboard() {
     const { type, id } = deleteConfirmation;
     if (!type || !id) return;
 
-    const endpoint = type === 'product' ? 'products' : type === 'category' ? 'categories' : type === 'reservation' ? 'reservations' : 'messages';
-    
     try {
-      const res = await fetch(`/api/${endpoint}/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
+      let res;
+      if (type === 'conversation') {
+        res = await fetch('/api/messages/delete-bulk', {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ ids: id })
+        });
+      } else {
+        const endpoint = type === 'product' ? 'products' : type === 'category' ? 'categories' : type === 'reservation' ? 'reservations' : 'messages';
+        res = await fetch(`/api/${endpoint}/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+      }
       
       if (res.status === 401 || res.status === 403) {
         handleLogout();
@@ -138,7 +252,8 @@ export default function AdminDashboard() {
     
     const productData = {
       ...currentProduct,
-      images: (Array.isArray(currentProduct.images) ? currentProduct.images : [currentProduct.images])
+      images: (currentProduct.imageObjects || [])
+        .map(obj => obj.url)
         .filter(img => img && typeof img === 'string' && img.trim() !== ''),
       condition: currentProduct.condition || 'New',
       stock_status: currentProduct.stock_status || 'In Stock',
@@ -164,8 +279,11 @@ export default function AdminDashboard() {
     e.preventDefault();
     const slug = currentCategory.name?.toLowerCase().replace(/ /g, '-') || '';
     
-    await fetch('/api/categories', {
-      method: 'POST',
+    const method = currentCategory.id ? 'PUT' : 'POST';
+    const url = currentCategory.id ? `/api/categories/${currentCategory.id}` : '/api/categories';
+
+    await fetch(url, {
+      method,
       headers: { 
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('token')}` 
@@ -495,6 +613,15 @@ export default function AdminDashboard() {
                       <td className="p-4 text-gray-400">{cat.slug}</td>
                       <td className="p-4 flex gap-2">
                         <button 
+                          onClick={() => {
+                            setCurrentCategory(cat);
+                            setShowCategoryModal(true);
+                          }}
+                          className="p-2 hover:bg-white/10 active:scale-95 transition-transform rounded text-blue-400"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button 
                           onClick={() => openDeleteModal('category', cat.id)}
                           className="p-2 hover:bg-white/10 active:scale-95 transition-transform rounded text-red-400"
                         >
@@ -588,41 +715,90 @@ export default function AdminDashboard() {
                 const dateB = new Date(b.msgs[0].created_at).getTime();
                 return dateB - dateA;
               })
-              .map(([key, group]: any) => (
-                <div key={key} className="bg-dahak-gray border border-white/10 rounded-xl overflow-hidden">
-                  <div className="p-4 bg-white/5 border-b border-white/5 flex justify-between items-center">
-                    <div>
-                      <h4 className="font-bold text-lg">{group.name}</h4>
-                      <div className="flex gap-4 text-sm text-gray-400">
-                        {group.email && <span>{group.email}</span>}
-                        {group.phone && <span>{group.phone}</span>}
+              .map(([key, group]: any) => {
+                const isExpanded = expandedGroups.has(key);
+                // Sort messages within group: oldest first
+                const sortedMsgs = [...group.msgs].sort((a, b) => 
+                  new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                );
+                const firstMsgDate = new Date(sortedMsgs[0].created_at).toLocaleString();
+
+                return (
+                  <div key={key} className="bg-dahak-gray border border-white/10 rounded-xl overflow-hidden">
+                    <div 
+                      className="p-4 bg-white/5 border-b border-white/5 flex justify-between items-center cursor-pointer hover:bg-white/10 transition-colors group/header"
+                      onClick={() => toggleGroup(key)}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
+                          <ChevronRight size={20} className="text-gray-500" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-lg">{group.name}</h4>
+                          <div className="flex gap-4 text-sm text-gray-400">
+                            {group.email && <span>{group.email}</span>}
+                            {group.phone && <span>{group.phone}</span>}
+                            <span className="text-dahak-red/80 font-mono text-xs">{firstMsgDate}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-gray-500 bg-black/20 px-2 py-1 rounded">
+                          {group.msgs.length} message{group.msgs.length > 1 ? 's' : ''}
+                        </span>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openDeleteModal('conversation', group.msgs.map((m: any) => m.id));
+                          }}
+                          className="text-gray-500 hover:text-red-400 opacity-0 group-hover/header:opacity-100 transition-opacity"
+                          title="Supprimer la conversation"
+                        >
+                          <Trash size={16} />
+                        </button>
                       </div>
                     </div>
-                    <span className="text-xs text-gray-500 bg-black/20 px-2 py-1 rounded">
-                      {group.msgs.length} message{group.msgs.length > 1 ? 's' : ''}
-                    </span>
-                  </div>
-                  <div className="divide-y divide-white/5">
-                    {group.msgs.map((msg: Message) => (
-                      <div key={msg.id} className="p-4 relative group hover:bg-white/5 transition-colors">
-                        <div className="flex justify-between mb-2">
-                          <span className="text-xs text-gray-500">
-                            {new Date(msg.created_at).toLocaleString()}
-                          </span>
-                          <button 
-                            onClick={() => openDeleteModal('message', msg.id)}
-                            className="text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Supprimer ce message"
-                          >
-                            <Trash size={14} />
-                          </button>
-                        </div>
-                        <p className="text-gray-300">{msg.message}</p>
+                    
+                    <div className={`transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+                      {sortedMsgs.map((msg: Message, idx: number) => {
+                        const msgDate = new Date(msg.created_at);
+                        const displayTime = idx === 0 
+                          ? msgDate.toLocaleString() 
+                          : msgDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        
+                        return (
+                          <div key={msg.id} className="p-4 relative group hover:bg-white/5 transition-colors">
+                            <div className="flex justify-between mb-1">
+                              <span className="text-xs text-gray-500 font-mono">
+                                {displayTime}
+                              </span>
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openDeleteModal('message', msg.id);
+                                }}
+                                className="text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Supprimer ce message"
+                              >
+                                <Trash size={14} />
+                              </button>
+                            </div>
+                            <p className="text-gray-300 whitespace-pre-wrap">{msg.message}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {!isExpanded && sortedMsgs.length > 0 && (
+                      <div className="p-4 bg-black/10">
+                        <p className="text-gray-400 text-sm line-clamp-1 italic">
+                          "{sortedMsgs[0].message}"
+                        </p>
                       </div>
-                    ))}
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
               {messages.length === 0 && (
                 <div className="text-center py-12 text-gray-500 bg-dahak-gray border border-white/10 rounded-xl">
@@ -700,12 +876,12 @@ export default function AdminDashboard() {
                     <input 
                       type="range"
                       min="20"
-                      max="100"
+                      max="1024"
                       className="flex-1 accent-dahak-red"
                       value={settings.logo_height || 40}
                       onChange={e => setSettings({...settings, logo_height: e.target.value})}
                     />
-                    <span className="text-white font-mono w-12 text-center">{settings.logo_height || 40}px</span>
+                    <span className="text-white font-mono w-16 text-center">{settings.logo_height || 40}px</span>
                   </div>
                 </div>
 
@@ -760,6 +936,18 @@ export default function AdminDashboard() {
                   />
                 </div>
                 <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">URL Google Maps (Embed)</label>
+                  <input 
+                    className="w-full bg-black/20 border border-white/10 rounded-lg p-3 focus:border-dahak-red focus:outline-none text-white"
+                    value={settings.google_maps_url || ''}
+                    onChange={e => setSettings({...settings, google_maps_url: e.target.value})}
+                    placeholder="https://www.google.com/maps/embed?pb=..."
+                  />
+                  <p className="text-[10px] text-gray-500 mt-1">
+                    Allez sur Google Maps &gt; Partager &gt; Intégrer une carte &gt; Copiez l'URL dans l'attribut 'src'.
+                  </p>
+                </div>
+                <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Facebook URL</label>
                   <input 
                     className="w-full bg-black/20 border border-white/10 rounded-lg p-3 focus:border-dahak-red focus:outline-none text-white"
@@ -781,6 +969,19 @@ export default function AdminDashboard() {
                 <div className="pt-8 border-t border-white/10">
                   <h3 className="text-xl font-bold mb-6">Page d'Accueil</h3>
                   <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre de produits populaires (Max 4)</label>
+                      <select 
+                        className="w-full bg-black/20 border border-white/10 rounded-lg p-3 focus:border-dahak-red focus:outline-none text-white appearance-none"
+                        value={settings.popular_limit || '4'}
+                        onChange={e => setSettings({...settings, popular_limit: e.target.value})}
+                      >
+                        <option value="1" className="bg-dahak-gray">1</option>
+                        <option value="2" className="bg-dahak-gray">2</option>
+                        <option value="3" className="bg-dahak-gray">3</option>
+                        <option value="4" className="bg-dahak-gray">4</option>
+                      </select>
+                    </div>
                     <div>
                       <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Titre Principal</label>
                       <input 
@@ -1198,78 +1399,65 @@ export default function AdminDashboard() {
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Images du Produit</label>
                 <div className="space-y-3">
-                  {(currentProduct.images || ['']).map((img, idx) => (
-                    <div key={idx} className="flex gap-2">
-                      <input 
-                        className="flex-1 bg-black/20 border border-white/10 rounded-lg p-2 focus:border-dahak-red focus:outline-none text-white text-sm"
-                        placeholder="URL de l'image..."
-                        value={img}
-                        onChange={e => {
-                          const newImages = [...(currentProduct.images || [''])];
-                          newImages[idx] = e.target.value;
-                          setCurrentProduct({...currentProduct, images: newImages});
-                        }}
-                      />
-                      <button 
-                        type="button"
-                        onClick={() => {
-                          const newImages = (currentProduct.images || ['']).filter((_, i) => i !== idx);
-                          if (newImages.length === 0) newImages.push('');
-                          setCurrentProduct({...currentProduct, images: newImages});
-                        }}
-                        className="p-2 bg-white/5 hover:bg-red-500/20 text-gray-400 hover:text-red-400 rounded-lg transition-colors"
-                        title="Supprimer"
-                      >
-                        <Trash size={16} />
-                      </button>
-                      {idx === (currentProduct.images || ['']).length - 1 && (
-                        <button 
-                          type="button"
-                          onClick={() => {
-                            setCurrentProduct({...currentProduct, images: [...(currentProduct.images || ['']), '']});
+                  <DndContext 
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <SortableContext 
+                      items={(currentProduct.imageObjects || []).map(img => img.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      {(currentProduct.imageObjects || []).map((imgObj, idx) => (
+                        <SortableImageItem 
+                          key={imgObj.id}
+                          id={imgObj.id}
+                          img={imgObj.url}
+                          idx={idx}
+                          onRemove={(i) => {
+                            const newImageObjects = (currentProduct.imageObjects || []).filter((_, index) => index !== i);
+                            if (newImageObjects.length === 0) newImageObjects.push({ id: Math.random().toString(36).substr(2, 9), url: '' });
+                            setCurrentProduct({...currentProduct, imageObjects: newImageObjects});
                           }}
-                          className="p-2 bg-white/5 hover:bg-green-500/20 text-gray-400 hover:text-green-400 rounded-lg transition-colors"
-                          title="Ajouter une image"
-                        >
-                          <Plus size={16} />
-                        </button>
-                      )}
-                      <label className="cursor-pointer bg-white/10 hover:bg-white/20 text-white px-3 py-2 rounded-lg flex items-center justify-center transition-colors">
-                        <span className="text-[10px] font-bold uppercase">Upload</span>
-                        <input 
-                          type="file" 
-                          className="hidden" 
-                          accept="image/*"
-                          onChange={async (e) => {
-                            if (e.target.files && e.target.files[0]) {
-                              const formData = new FormData();
-                              formData.append('image', e.target.files[0]);
-                              try {
-                                const res = await fetch('/api/upload', {
-                                  method: 'POST',
-                                  headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-                                  body: formData
-                                });
-                                if (res.ok) {
-                                  const data = await res.json();
-                                  const newImages = [...(currentProduct.images || [''])];
-                                  newImages[idx] = data.url;
-                                  setCurrentProduct({...currentProduct, images: newImages});
-                                }
-                              } catch (err) {
-                                console.error('Upload failed', err);
+                          onUpload={async (i, file) => {
+                            const formData = new FormData();
+                            formData.append('image', file);
+                            try {
+                              const res = await fetch('/api/upload', {
+                                method: 'POST',
+                                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+                                body: formData
+                              });
+                              if (res.ok) {
+                                const data = await res.json();
+                                const newImageObjects = [...(currentProduct.imageObjects || [])];
+                                newImageObjects[i] = { ...newImageObjects[i], url: data.url };
+                                setCurrentProduct({...currentProduct, imageObjects: newImageObjects});
                               }
+                            } catch (err) {
+                              console.error('Upload failed', err);
                             }
                           }}
                         />
-                      </label>
-                    </div>
-                  ))}
+                      ))}
+                    </SortableContext>
+                  </DndContext>
+                  
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      const newObj = { id: Math.random().toString(36).substr(2, 9), url: '' };
+                      setCurrentProduct({...currentProduct, imageObjects: [...(currentProduct.imageObjects || []), newObj]});
+                    }}
+                    className="w-full py-2 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-lg transition-colors flex items-center justify-center gap-2 text-sm"
+                  >
+                    <Plus size={16} /> Ajouter une autre image
+                  </button>
                 </div>
                 <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
-                  {(currentProduct.images || []).filter(img => img).map((img, idx) => (
+                  {(currentProduct.imageObjects || []).filter(img => img.url).map((img, idx) => (
                     <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-white/10 flex-shrink-0 bg-black/20">
-                      <img src={img} alt="" className="w-full h-full object-cover" />
+                      <img src={img.url} alt="" className="w-full h-full object-cover" />
                     </div>
                   ))}
                 </div>
@@ -1299,7 +1487,7 @@ export default function AdminDashboard() {
       {showCategoryModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="bg-dahak-gray border border-white/10 rounded-2xl w-full max-w-md p-6">
-            <h3 className="text-2xl font-bold mb-6">Nouvelle Catégorie</h3>
+            <h3 className="text-2xl font-bold mb-6">{currentCategory.id ? 'Modifier la Catégorie' : 'Nouvelle Catégorie'}</h3>
             <form onSubmit={handleSaveCategory} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nom</label>

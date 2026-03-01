@@ -61,18 +61,25 @@ export default function ProductDetails() {
     }
   };
 
-  if (loading) return <div className="min-h-screen pt-32 text-center">Chargement...</div>;
-  if (!product) return <div className="min-h-screen pt-32 text-center">Produit non trouvé</div>;
+  if (loading) return <div className="min-h-screen pt-[120px] text-center">Chargement...</div>;
+  if (!product) return <div className="min-h-screen pt-[120px] text-center">Produit non trouvé</div>;
 
   const images = product.images && product.images.length > 0 ? product.images : ['https://placehold.co/600x400/1F1F1F/FFF?text=No+Image'];
 
   return (
-    <div className="min-h-screen pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+    <div className="min-h-screen pt-[120px] pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto relative">
       <button 
-        onClick={() => navigate(-1)} 
-        className="inline-flex items-center gap-2 text-gray-400 hover:text-white mb-8 transition-colors cursor-pointer"
+        onClick={() => {
+          if (window.history.length > 2) {
+            navigate(-1);
+          } else {
+            navigate('/products');
+          }
+        }} 
+        className="fixed top-[104px] left-4 md:left-8 p-3 bg-dahak-gray border border-white/10 text-gray-400 hover:text-white hover:border-dahak-red transition-all rounded-full cursor-pointer z-50"
+        title="Retour"
       >
-        <ArrowLeft size={18} /> Retour au catalogue
+        <ArrowLeft size={24} />
       </button>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">

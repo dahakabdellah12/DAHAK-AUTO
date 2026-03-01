@@ -7,6 +7,7 @@ import { Product, Category } from '../types';
 export default function Products() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [brands, setBrands] = useState<string[]>([]);
   const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
@@ -22,6 +23,22 @@ export default function Products() {
     fetch('/api/categories')
       .then(res => res.json())
       .then(data => setCategories(data));
+      
+    // Fetch brands
+    fetch('/api/brands')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setBrands(data);
+        } else {
+          console.error('Failed to fetch brands:', data);
+          setBrands([]);
+        }
+      })
+      .catch(err => {
+        console.error('Error fetching brands:', err);
+        setBrands([]);
+      });
   }, []);
 
   useEffect(() => {
@@ -42,11 +59,17 @@ export default function Products() {
 
   // Update URL when filters change
   useEffect(() => {
-    const params = new URLSearchParams();
-    if (selectedCategory) params.set('category', selectedCategory);
-    if (searchQuery) params.set('search', searchQuery);
-    setSearchParams(params);
-  }, [selectedCategory, searchQuery, setSearchParams]);
+    const currentCategory = searchParams.get('category') || '';
+    const currentSearch = searchParams.get('search') || '';
+    
+    // Only update if values actually changed to avoid redundant history entries
+    if (selectedCategory !== currentCategory || searchQuery !== currentSearch) {
+      const params = new URLSearchParams();
+      if (selectedCategory) params.set('category', selectedCategory);
+      if (searchQuery) params.set('search', searchQuery);
+      setSearchParams(params, { replace: true });
+    }
+  }, [selectedCategory, searchQuery, searchParams, setSearchParams]);
 
   const clearFilters = () => {
     setSelectedCategory('');
@@ -56,51 +79,58 @@ export default function Products() {
   };
 
   return (
-    <div className="min-h-screen pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-      <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-display font-bold mb-2">Nos Pièces</h1>
-          <p className="text-gray-400">Trouvez la pièce exacte pour votre véhicule</p>
+    <div className="min-h-screen pt-[104px] pb-12">
+      {/* Sticky Search Bar */}
+      <div className="sticky top-[64px] z-40 bg-dahak-dark/95 backdrop-blur-md border-b border-white/10 py-4 px-4 sm:px-6 lg:px-8 mb-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-white/10 backdrop-blur-md p-2 rounded-xl border border-white/20 flex items-center gap-2 w-full">
+            <Search className="text-gray-400 ml-3 shrink-0" />
+            <input 
+              type="text" 
+              placeholder="Rechercher une pièce" 
+              className="bg-transparent border-none outline-none text-white placeholder-gray-400 w-full py-2"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            <button 
+              className="bg-dahak-red hover:bg-red-600 text-white px-6 py-2 rounded-lg font-medium transition-colors shrink-0"
+            >
+              Chercher
+            </button>
+          </div>
         </div>
-        
-        <button 
-          onClick={() => setShowFilters(!showFilters)}
-          className="md:hidden flex items-center gap-2 px-4 py-2 bg-white/10 rounded-lg text-sm font-medium"
-        >
-          <Filter size={18} /> Filtres
-        </button>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-8">
-        {/* Sidebar Filters */}
-        <aside className={`w-full md:w-64 shrink-0 ${showFilters ? 'block' : 'hidden md:block'}`}>
-          <div className="bg-dahak-gray border border-white/5 rounded-xl p-6 sticky top-24">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-bold text-lg">Filtres</h3>
-              {(selectedCategory || searchQuery || selectedBrand) && (
-                <button onClick={clearFilters} className="text-xs text-dahak-red hover:underline">
-                  Effacer
-                </button>
-              )}
-            </div>
+      <div className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-display font-bold mb-2">Nos Pièces</h1>
+            <p className="text-gray-400">Trouvez la pièce exacte pour votre véhicule</p>
+          </div>
+          
+          <button 
+            onClick={() => setShowFilters(!showFilters)}
+            className="md:hidden flex items-center gap-2 px-4 py-2 bg-white/10 rounded-lg text-sm font-medium"
+          >
+            <Filter size={18} /> Filtres
+          </button>
+        </div>
 
-            {/* Search */}
-            <div className="mb-6">
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Recherche</label>
-              <div className="relative">
-                <input 
-                  type="text" 
-                  placeholder="Nom, modèle..." 
-                  className="w-full bg-black/20 border border-white/10 rounded-lg py-2 pl-3 pr-8 text-sm focus:border-dahak-red focus:outline-none transition-colors"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                <Search className="absolute right-2 top-2.5 text-gray-500" size={14} />
+        <div className="flex flex-col md:flex-row gap-8">
+          {/* Sidebar Filters */}
+          <aside className={`w-full md:w-64 shrink-0 ${showFilters ? 'block' : 'hidden md:block'}`}>
+            <div className="bg-dahak-gray border border-white/5 rounded-xl p-6 sticky top-40">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="font-bold text-lg">Filtres</h3>
+                {(selectedCategory || searchQuery || selectedBrand) && (
+                  <button onClick={clearFilters} className="text-xs text-dahak-red hover:underline">
+                    Effacer
+                  </button>
+                )}
               </div>
-            </div>
 
-            {/* Categories */}
-            <div className="mb-6">
+              {/* Categories */}
+              <div className="mb-6">
               <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Catégorie</label>
               <div className="space-y-2">
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -128,7 +158,7 @@ export default function Products() {
               </div>
             </div>
 
-            {/* Brand (Hardcoded for demo, normally dynamic) */}
+            {/* Dynamic Brands */}
             <div className="mb-6">
               <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Marque</label>
               <select 
@@ -137,12 +167,9 @@ export default function Products() {
                 onChange={(e) => setSelectedBrand(e.target.value)}
               >
                 <option value="">Toutes les marques</option>
-                <option value="Volkswagen">Volkswagen</option>
-                <option value="Audi">Audi</option>
-                <option value="BMW">BMW</option>
-                <option value="Mercedes">Mercedes</option>
-                <option value="Peugeot">Peugeot</option>
-                <option value="Renault">Renault</option>
+                {brands.map(brand => (
+                  <option key={brand} value={brand}>{brand}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -159,7 +186,12 @@ export default function Products() {
           ) : products.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {products.map(product => (
-                <ProductCard key={product.id} product={product} />
+                <ProductCard 
+                  key={product.id} 
+                  product={product} 
+                  fromCatalog={true} 
+                  searchParams={searchParams.toString()} 
+                />
               ))}
             </div>
           ) : (
@@ -189,6 +221,7 @@ export default function Products() {
               )}
             </div>
           )}
+        </div>
         </div>
       </div>
     </div>

@@ -5,9 +5,11 @@ import { ShoppingBag, ArrowRight } from 'lucide-react';
 
 interface ProductCardProps {
   product: Product;
+  fromCatalog?: boolean;
+  searchParams?: string;
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
+const ProductCard: React.FC<ProductCardProps> = ({ product, fromCatalog = false, searchParams = '' }) => {
   const imageUrl = product.images && product.images.length > 0 ? product.images[0] : 'https://placehold.co/600x400/1F1F1F/FFF?text=No+Image';
 
   return (
@@ -59,6 +61,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           </div>
           <Link 
             to={`/products/${product.id}`}
+            state={{ fromCatalog, searchParams }}
             className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-white hover:bg-dahak-red transition-colors"
           >
             <ArrowRight size={20} />

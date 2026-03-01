@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Phone, MessageCircle, ArrowRight } from 'lucide-react';
+import { Phone, MessageCircle, ArrowRight, ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export default function WhatsApp() {
   const [settings, setSettings] = useState<any>({});
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetch('/api/settings')
@@ -15,7 +17,13 @@ export default function WhatsApp() {
 
   if (!settings.whatsapp && !settings.phone) {
     return (
-      <div className="min-h-screen pt-24 pb-12 px-4 flex flex-col items-center justify-center text-center">
+      <div className="min-h-screen pt-[120px] pb-12 px-4 flex flex-col items-center justify-center text-center">
+        <button 
+          onClick={() => navigate(-1)}
+          className="absolute top-24 left-4 sm:left-8 p-3 bg-dahak-gray border border-white/10 rounded-full hover:bg-white/5 transition-colors"
+        >
+          <ArrowLeft size={24} />
+        </button>
         <h1 className="text-2xl font-bold mb-4">Contact WhatsApp non disponible</h1>
         <p className="text-gray-400">Le numéro WhatsApp n'a pas encore été configuré.</p>
       </div>
@@ -23,7 +31,14 @@ export default function WhatsApp() {
   }
 
   return (
-    <div className="min-h-screen pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto flex flex-col items-center justify-center text-center">
+    <div className="min-h-screen pt-[120px] pb-12 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto flex flex-col items-center justify-center text-center relative">
+      <button 
+        onClick={() => navigate(-1)}
+        className="absolute top-24 left-4 sm:left-8 p-3 bg-dahak-gray border border-white/10 rounded-full hover:bg-white/5 transition-colors"
+      >
+        <ArrowLeft size={24} />
+      </button>
+      
       <div className="bg-dahak-gray border border-white/10 p-12 rounded-3xl max-w-lg w-full shadow-2xl">
         <div className="w-24 h-24 bg-[#25D366]/20 rounded-full flex items-center justify-center mx-auto mb-8">
           <Phone size={48} className="text-[#25D366]" />
